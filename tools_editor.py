@@ -56,10 +56,22 @@ DEFAULTS = {
 }
 
 
+def argb(c):
+    c = str(c).strip().lstrip("#")
+    if len(c) == 6:
+        return "FF" + c.upper()
+    if len(c) == 8:
+        return c.upper()
+    return "FF000000"
+
+
 def build_skin(p):
     skin = json.load(open(WORK_JSON, encoding="utf-8"))
     P = dict(DEFAULTS)
     P.update({k: v for k, v in p.items() if k in DEFAULTS})
+    for ck in ("light_main", "light_sub", "dark_main", "dark_sub", "bar_fill_light", "bar_fill_dark"):
+        if ck in P:
+            P[ck] = argb(P[ck])
     for key in ("margin", "side", "mid", "gap", "extra", "gap_l", "gap_r", "row_top", "row_h"):
         P[key] = float(P[key])
     for key in ("rowgap", "bottom_h", "bw", "enter_w", "size_main", "size_sub", "size_small", "weight_main", "weight_small"):
@@ -136,7 +148,7 @@ def build_skin(p):
 
             fill_sid = max(int(k) for k in ss) + 1
             ss[str(fill_sid)] = {"f": 0, "id": "STYLE%d" % fill_sid,
-                                 "s_1": {"c_normal": bar_fill, "c_hl": bar_fill, "for_back": True}}
+                                 "s_1": {"c_normal": "00000000", "c_hl": "00000000", "for_back": True}}
 
             for r, (yy, hh) in enumerate(rows):
                 for c, (label, code) in enumerate(LEFT[r]):
@@ -152,6 +164,11 @@ def build_skin(p):
             top = rows[0][0]
             bottom = rows[-1][0] + rows[-1][1]
             step = (bottom - top) / 5.0
+            # 整条背景，和主按键同一个样式，不可点击
+            keys.append({"b": {"base_b": base["b"]["base_b"], "base_f": [], "base_o": []},
+                         "hit_rect": [[0, 0], [0, 0]], "id": str(state["id"]),
+                         "rect": [[mx(), top], [mid, bottom - top]], "values": [4, ""]})
+            state["id"] += 1
             for i, glyph in enumerate(STROKES):
                 add(mx(), top + i * step, mid, step, glyph, [4, glyph], size_main + 2)
                 keys[-1]["b"]["base_b"] = fill_sid
@@ -261,7 +278,7 @@ const SPEC=[
  ["gap_l",0,40,1],["gap_r",0,40,1],["size_main",20,64,1],["size_sub",10,34,1],["size_small",14,44,1],
  ["weight_main",100,700,50],["weight_small",100,700,50]];
 const GROUPS={"几何":["margin","side","mid","gap","extra","gap_l","gap_r"],"行":["row_top","row_h","rowgap","bottom_h"],"底排":["bw","enter_w"],"字号":["size_main","size_sub","size_small"],"字重":["weight_main","weight_small"]};
-const COLORS=[["light_main","浅色主字"],["light_sub","浅色副字"],["dark_main","深色主字"],["dark_sub","深色副字"],["bar_fill_light","浅色笔画条"],["bar_fill_dark","深色笔画条"]];
+const COLORS=[["light_main","浅色主字"],["light_sub","浅色副字"],["dark_main","深色主字"],["dark_sub","深色副字"],];
 const box=document.getElementById('board');
 const S=0.62;
 const dark=()=>document.getElementById('dark').checked;
@@ -295,15 +312,20 @@ function draw(){
       else key(rx(c),rows[r],side,rh,"删除",null,P.size_small,main);}
   }
   const top=rows[0],bottom=rows[2]+rh,step=(bottom-top)/5;
-  const barcol=d?P.bar_fill_dark:P.bar_fill_light;
-  for(let i=0;i<5;i++){
+  {
     const e=document.createElement('div');e.className='key';
-    e.style.left=(mx()*S)+'px';e.style.top=((top+i*step)*S)+'px';
-    e.style.width=(mid*S)+'px';e.style.height=(step*S)+'px';
-    e.style.background=barcol;e.style.borderRadius='0';
-    const t=document.createElement('span');t.className='lb';t.textContent=STROKES[i];
-    t.style.fontSize=((P.size_main+2)*S)+'px';t.style.color=main;t.style.fontWeight=P.weight_main;
-    e.appendChild(t);box.appendChild(e);
+    e.style.left=(mx()*S)+'px';e.style.top=(top*S)+'px';
+    e.style.width=(mid*S)+'px';e.style.height=((bottom-top)*S)+'px';
+    e.style.background=d?'#5a5a5f':'#fbfbfd';
+    box.appendChild(e);
+    for(let i=0;i<5;i++){
+      const t=document.createElement('div');t.className='lb';
+      t.style.position='absolute';t.style.left=(mx()*S)+'px';
+      t.style.top=((top+i*step+step/2)*S)+'px';t.style.width=(mid*S)+'px';
+      t.style.textAlign='center';t.style.transform='translateY(-50%)';
+      t.style.fontSize=((P.size_main+2)*S)+'px';t.style.color=main;t.style.fontWeight=P.weight_main;
+      t.textContent=STROKES[i];box.appendChild(t);
+    }
   }
   const bh=P.bottom_h,bw=P.bw;
   let bx=m;
